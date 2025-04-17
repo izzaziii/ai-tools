@@ -1,11 +1,6 @@
 from core.mongodb import Mongo
-from openai import OpenAI
-from typing import Dict, List, Any, Optional, Tuple, Union
-import os
-from dotenv import load_dotenv, find_dotenv
-
-load_dotenv(find_dotenv())
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+from core.openai_client import OpenAIClient
+from typing import Dict, List, Any
 
 
 def get_data(
@@ -19,58 +14,7 @@ def get_data(
         return []
 
 
-def query_openai(
-    prompt: str, model: str, api_key: Optional[str] = None
-) -> Optional[Any]:
-    """Query OpenAI with the given prompt and model."""
-    try:
-        client = OpenAI(api_key=api_key or os.environ.get("OPENAI_API_KEY"))
-        return client.responses.create(model=model, input=prompt)
-    except Exception as e:
-        print(f"Error querying OpenAI: {e}")
-        return None
-
-
-def get_token_info(response: Any) -> Tuple[int, int, int]:
-    """Extract token usage information from OpenAI response."""
-    try:
-        input_tokens = response.usage.input_tokens
-        output_tokens = response.usage.output_tokens
-        return input_tokens, output_tokens, input_tokens + output_tokens
-    except Exception as e:
-        print(f"Error extracting token info: {e}")
-        return 0, 0, 0
-
-
-def get_response_text(response: Any) -> str:
-    """Extract text from OpenAI response."""
-    try:
-        return response.output[0].content[0].text
-    except Exception as e:
-        print(f"Error extracting response text: {e}")
-        return "No response text available"
-
-
-def get_response(
-    prompt: str,
-    data: List[Dict[str, Any]],
-    model: str = "gpt-4.1-nano-2025-04-14",
-    api_key: Optional[str] = OPENAI_API_KEY,
-) -> Dict[str, Union[str, Tuple[int, int, int]]]:
-    api_prompt = f"{prompt} Dataset: {data}"
-    response = query_openai(api_prompt, model, api_key)
-
-    if not response:
-        return {"text": "Failed to get response", "tokens": (0, 0, 0)}
-
-    tokens = get_token_info(response)
-    text = get_response_text(response)
-
-    return {"text": text, "tokens": tokens}
-
-
 def main():
-    api_key = OPENAI_API_KEY
     database_name = "deep-diver-v2"
     collection_name = "ai-ingestion"
     data_limits = 1000
@@ -118,14 +62,26 @@ def main():
     """
 
     data = get_data(database_name, collection_name, limit=data_limits)
-    result = get_response(prompt=prompt, data=data, api_key=api_key)
 
+    # Initialize the client
+    client = OpenAIClient()  # Will use API key from environment variable
+
+    # Get a completion
+    result = client.get_completion(
+        prompt=prompt,
+        data=data,  # Optional
+        model="gpt-4.1-nano-2025-04-14",  # Optional, this is the default
+    )
+
+    # Access the response
+    response_text = result["text"]
     input_tokens, output_tokens, total_tokens = result["tokens"]
+
     print(
         f"\nInput Tokens: {input_tokens}. Output Tokens: {output_tokens}. Total Tokens: {total_tokens}\n"
     )
     print("Output:")
-    print(result["text"])
+    print(response_text)
     print("\n")
 
 
