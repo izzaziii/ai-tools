@@ -19,8 +19,9 @@ class OpenAIClient:
     >>> prompt = (
     >>>     "Explain adstock effects in advertising in simple terms. Keep it under 250 words."
     >>> )
-    >>> response = client.get_completion(prompt)
-    >>> print(response)
+    >>> response = client.get_completion(prompt, model="o4-mini-2025-04-16")
+    >>> print(response["tokens"])
+    >>> print(response["text"])
 
     """
 
@@ -70,18 +71,19 @@ class OpenAIClient:
             print(f"Error extracting token info: {e}")
             return 0, 0, 0
 
-    def get_response_text(self, response: Any) -> str:
+    def get_response_text(self, response: Any, model: str = "") -> str:
         """
-        Extract text content from an OpenAI response.
-
-        Args:
-            response: The OpenAI response object
-
-        Returns:
-            The extracted text or an error message
+        Extract text content from an OpenAI response, handling o4 and GPT-4.1 Nano models.
         """
         try:
-            return response.output[0].content[0].text
+            # For o4 models, use the second output's first content's text
+            if model.startswith("o4-"):
+                return response.__dict__["output"][1].content[0].text
+            # For GPT-4.1 Nano models, use the first output's first content's text
+            elif model.startswith("gpt-4.1-nano"):
+                return response.__dict__["output"][0].content[0].text
+            # For other models, just extract raw response text
+            return response
         except Exception as e:
             print(f"Error extracting response text: {e}")
             return "No response text available"
@@ -119,3 +121,43 @@ class OpenAIClient:
         text = self.get_response_text(response)
 
         return {"text": text, "tokens": tokens}
+
+    @staticmethod
+    def extract_response_text(response) -> str:
+        """
+        Extracts the generated text from various possible OpenAI response formats.
+        """
+        # If response is a dict, try to unwrap common keys
+        if isinstance(response, dict):
+            for key in ["text", "output", "choices"]:
+                if key in response:
+                    val = response[key]
+                    # If it's a list, take the first element
+                    if isinstance(val, list) and val:
+                        response = val[0]
+                    else:
+                        response = val
+                    break
+
+        # Handle o4-mini and similar models (output is a list of objects)
+        if hasattr(response, "output"):
+            for item in response.output:
+                if hasattr(item, "content"):
+                    for content in item.content:
+                        if hasattr(content, "text"):
+                            return content.text
+                if hasattr(item, "text"):
+                    return item.text
+
+        # Handle legacy completions
+        if hasattr(response, "choices"):
+            for choice in response.choices:
+                if hasattr(choice, "text"):
+                    return choice.text
+
+        # Fallback: direct text
+        if hasattr(response, "text"):
+            return response.text
+
+        # Final fallback: string representation
+        return str(response)
