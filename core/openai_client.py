@@ -73,17 +73,10 @@ class OpenAIClient:
 
     def get_response_text(self, response: Any, model: str = "") -> str:
         """
-        Extract text content from an OpenAI response, handling o4 and GPT-4.1 Nano models.
+        Extract text content from an OpenAI response, handling GPT-4.1 models.
         """
         try:
-            # For o4 models, use the second output's first content's text
-            if model.startswith("o4-"):
-                return response.__dict__["output"][1].content[0].text
-            # For GPT-4.1 Nano models, use the first output's first content's text
-            elif model.startswith("gpt-4.1-nano"):
-                return response.__dict__["output"][0].content[0].text
-            # For other models, just extract raw response text
-            return response
+            return response.__dict__["output"][0].content[0].text
         except Exception as e:
             print(f"Error extracting response text: {e}")
             return "No response text available"
@@ -92,7 +85,7 @@ class OpenAIClient:
         self,
         prompt: str,
         data: List[Dict[str, Any]] = None,
-        model: str = "gpt-4.1-nano-2025-04-14",
+        model: str = "gpt-4.1-mini-2025-04-14",
     ) -> Dict[str, Union[str, Tuple[int, int, int]]]:
         """
         Get a completion from OpenAI with the given prompt and optional data.
@@ -100,7 +93,7 @@ class OpenAIClient:
         Args:
             prompt: The prompt text to send to the model
             data: Optional data to append to the prompt
-            model: The OpenAI model ID to use (defaults to gpt-4.1-nano)
+            model: The OpenAI model ID to use (defaults to gpt-4.1-mini)
 
         Returns:
             Dictionary containing the response text and token usage information
@@ -120,44 +113,7 @@ class OpenAIClient:
         tokens = self.get_token_info(response)
         text = self.get_response_text(response)
 
-        return {"text": text, "tokens": tokens}
-
-    @staticmethod
-    def extract_response_text(response) -> str:
-        """
-        Extracts the generated text from various possible OpenAI response formats.
-        """
-        # If response is a dict, try to unwrap common keys
-        if isinstance(response, dict):
-            for key in ["text", "output", "choices"]:
-                if key in response:
-                    val = response[key]
-                    # If it's a list, take the first element
-                    if isinstance(val, list) and val:
-                        response = val[0]
-                    else:
-                        response = val
-                    break
-
-        # Handle o4-mini and similar models (output is a list of objects)
-        if hasattr(response, "output"):
-            for item in response.output:
-                if hasattr(item, "content"):
-                    for content in item.content:
-                        if hasattr(content, "text"):
-                            return content.text
-                if hasattr(item, "text"):
-                    return item.text
-
-        # Handle legacy completions
-        if hasattr(response, "choices"):
-            for choice in response.choices:
-                if hasattr(choice, "text"):
-                    return choice.text
-
-        # Fallback: direct text
-        if hasattr(response, "text"):
-            return response.text
-
-        # Final fallback: string representation
-        return str(response)
+        return {
+            "text": text,
+            "tokens": {"input": tokens[0], "output": tokens[1], "total": tokens[2]},
+        }

@@ -43,8 +43,6 @@ prompt = f"""
 
     Dataset: {json_data}
     """
-nano_response = client.get_completion(prompt, model="gpt-4.1-nano-2025-04-14")
-o4_response = client.get_completion(prompt, model="o4-mini-2025-04-16")
-
-print(nano_response["text"])
-print(o4_response["text"])
+response = client.get_completion(prompt, model="gpt-4.1-mini-2025-04-14")
+print(response["tokens"])
+print(response["text"])
