@@ -1,4 +1,4 @@
-from core.ols import OLS
+from src.core.ga4 import OLS
 import pandas as pd
 
 

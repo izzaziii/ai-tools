@@ -89,3 +89,70 @@ class OLS:
             df = df.rename(columns={"totalUsers": col})
             dfs.append(df)
         return pd.concat(dfs, axis=1)
+
+
+class CampaignAnalytics:
+    """
+    Fetches totalUsers by sessionCampaignName and sessionSourceMedium from GA4.
+
+    Example usage:
+    >>> ca = CampaignAnalytics()
+    >>> df = ca.get_campaign_users()
+    """
+
+    def __init__(self, property_id: Optional[str] = None):
+        load_dotenv(find_dotenv())
+        self.property_id = property_id or os.getenv("GOOGLE_ANALYTICS_PROPERTY")
+        if not self.property_id:
+            raise EnvironmentError("GOOGLE_ANALYTICS_PROPERTY not set in environment.")
+        self.client = BetaAnalyticsDataClient()
+
+    def get_campaign_users(
+        self,
+        start_date: str = "7daysAgo",
+        end_date: str = "yesterday",
+        limit: int = 1000,
+    ) -> pd.DataFrame:
+        """
+        Returns a DataFrame with totalUsers by sessionCampaignName and sessionSourceMedium.
+
+        Args:
+            start_date (str): Start date for the report.
+            end_date (str): End date for the report.
+            limit (int): Number of rows to return.
+
+        Returns:
+            pd.DataFrame: DataFrame indexed by sessionCampaignName and sessionSourceMedium with totalUsers.
+
+        Raises:
+            RuntimeError: If the API call fails.
+        """
+        try:
+            req = {
+                "property": f"properties/{self.property_id}",
+                "metrics": [Metric(name="totalUsers")],
+                "dimensions": [
+                    Dimension(name="sessionCampaignName"),
+                    Dimension(name="sessionSourceMedium"),
+                ],
+                "date_ranges": [{"start_date": start_date, "end_date": end_date}],
+                "limit": limit,
+            }
+            resp: RunReportResponse = self.client.run_report(RunReportRequest(**req))
+            data = [
+                {
+                    "sessionCampaignName": row.dimension_values[0].value,
+                    "sessionSourceMedium": row.dimension_values[1].value,
+                    "totalUsers": int(row.metric_values[0].value),
+                }
+                for row in resp.rows
+            ]
+            return pd.DataFrame(data)
+        except Exception as e:
+            raise RuntimeError(f"Failed to fetch campaign data: {e}")
+
+
+if __name__ == "__main__":
+    ca = CampaignAnalytics()
+    df = ca.get_campaign_users()
+    print(df)

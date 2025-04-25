@@ -8,3 +8,8 @@ We need an input window of 1.2M, at least.
 salesgpt.py works well for small contexts, maybe for large ones its better to just process it here with CPU power.
 
 Then we deliver it to the model for insights extraction or reports generation.
+
+## Todos
+- [ ] Create prompts library
+- [ ] Finish notebook templates
+- [ ] Try it in action and list down edge use-cases for next iteration

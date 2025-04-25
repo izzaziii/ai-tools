@@ -1,17 +1,22 @@
 from core.openai_client import OpenAIClient
-from core.ols import OLS
+from core.ga4 import CampaignAnalytics
+from utils.prompts import Prompt
 
 
 # Get OLS data
-ols = OLS()
-df = ols.get_ols_dataframe(start_date="2025-04-15", end_date="yesterday")
+# ols = OLS()
+# df = ols.get_ols_dataframe(start_date="2025-04-15", end_date="yesterday")
+
+# Get Campaign Analytics data
+ca = CampaignAnalytics()
+df = ca.get_campaign_users(start_date="2025-04-15", end_date="yesterday")
 
 # Transform to JSON
 json_data = df.to_dict(orient="records")
 
 # Request analysis from OpenAI
 client = OpenAIClient()
-prompt = f"""
+ols_prompt = f"""
     Assume the role of a data analyst for a telecommunications company.
 
     You are given a dataset in JSON format. Your task is to write a written report on the dataset for the website optimization team.
@@ -43,6 +48,17 @@ prompt = f"""
 
     Dataset: {json_data}
     """
-response = client.get_completion(prompt, model="gpt-4.1-mini-2025-04-14")
+
+traffic_prompt = Prompt(
+    role="data analyst",
+    instructions="analyze the dataset and provide insights",
+    reasoning_steps="Think step-by-step before writing the report.",
+    output_format="Limit your report to a maximum of 150 words.",
+    context="This is a telecommunications company dataset.",
+).create_prompt()
+
+final_prompt = f"""{traffic_prompt} \nDataset: {json_data}"""
+response = client.get_completion(final_prompt, model="gpt-4.1-mini-2025-04-14")
 print(response["tokens"])
+print(response["cost"])
 print(response["text"])

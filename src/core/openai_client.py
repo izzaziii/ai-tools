@@ -81,12 +81,32 @@ class OpenAIClient:
             print(f"Error extracting response text: {e}")
             return "No response text available"
 
+    def estimate_cost(self, input_tokens: int, output_tokens: int, model: str) -> float:
+        """
+        Estimate the API call cost based on token usage and model.
+
+        Args:
+            input_tokens: Number of input tokens
+            output_tokens: Number of output tokens
+            model: Model name
+
+        Returns:
+            Estimated cost in USD
+        """
+        try:
+            if "gpt-4.1-mini" in model:
+                return round((input_tokens * 0.4 + output_tokens * 1.6) / 1_000_000, 6)
+            return 0.0
+        except Exception as e:
+            print(f"Error estimating cost: {e}")
+            return 0.0
+
     def get_completion(
         self,
         prompt: str,
         data: List[Dict[str, Any]] = None,
         model: str = "gpt-4.1-mini-2025-04-14",
-    ) -> Dict[str, Union[str, Tuple[int, int, int]]]:
+    ) -> Dict[str, Any]:
         """
         Get a completion from OpenAI with the given prompt and optional data.
 
@@ -96,24 +116,21 @@ class OpenAIClient:
             model: The OpenAI model ID to use (defaults to gpt-4.1-mini)
 
         Returns:
-            Dictionary containing the response text and token usage information
+            Dictionary containing the response text, token usage, and estimated cost
         """
-        # Construct the full prompt with data if provided
         api_prompt = prompt
         if data:
             api_prompt = f"{prompt} Dataset: {data}"
 
-        # Query the API
         response = self.query(api_prompt, model)
-
         if not response:
-            return {"text": "Failed to get response", "tokens": (0, 0, 0)}
+            return {"text": "Failed to get response", "tokens": (0, 0, 0), "cost": 0.0}
 
-        # Process the response
         tokens = self.get_token_info(response)
         text = self.get_response_text(response)
-
+        cost = self.estimate_cost(tokens[0], tokens[1], model)
         return {
             "text": text,
             "tokens": {"input": tokens[0], "output": tokens[1], "total": tokens[2]},
+            "cost": {"cost in USD ($)": cost},
         }
